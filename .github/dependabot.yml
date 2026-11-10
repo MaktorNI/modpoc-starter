@@ -15,3 +15,8 @@ updates:
       - github-packages
     allow:
       - dependency-name: "@maktorni/*"
+    # Our own packages skip the supply-chain cooldown; third-party ones would still wait.
+    cooldown:
+      default-days: 7
+      exclude:
+        - "@maktorni/*"
