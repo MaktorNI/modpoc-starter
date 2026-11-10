@@ -1,0 +1,14 @@
+{
+  "name": "modpoc-client",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@maktorni/module-form": "^1.0.0"
+  },
+  "devDependencies": {
+    "jsdom": "^29.1.1"
+  }
+}

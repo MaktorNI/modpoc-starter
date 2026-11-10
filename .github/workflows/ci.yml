@@ -1,0 +1,51 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  # Dispatched by dependabot-automerge.yml: a merge done with GITHUB_TOKEN does not fire `push`.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm test
+      - name: Build Pages artifact
+        run: |
+          mkdir -p _site/node_modules
+          cp index.html main.js site.css _site/
+          cp -r node_modules/@maktorni _site/node_modules/
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    needs: test
+    # Only main deploys; the template repo itself has no Pages site.
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && !github.event.repository.is_template
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

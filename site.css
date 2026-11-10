@@ -1,0 +1,15 @@
+:root {
+  --brand: #2563eb;
+}
+
+body {
+  margin: 0;
+  padding: 2rem 1rem;
+  background: #f9fafb;
+  color: #111827;
+}
+
+main {
+  max-width: 28rem;
+  margin: 0 auto;
+}

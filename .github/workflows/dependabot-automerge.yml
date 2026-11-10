@@ -1,0 +1,49 @@
+name: dependabot-automerge
+
+on: pull_request
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write     # create the needs-review label if missing
+  actions: write    # dispatch ci.yml on main after the merge
+
+jobs:
+  automerge:
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      PR_URL: ${{ github.event.pull_request.html_url }}
+    steps:
+      - id: meta
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Major → label needs-review, no merge
+        if: steps.meta.outputs.update-type == 'version-update:semver-major'
+        run: |
+          gh label create needs-review --color d93f0b --description "Major update, needs a human" --force
+          gh pr edit "$PR_URL" --add-label needs-review
+
+      - name: Patch/minor → enable auto-merge (waits for required CI)
+        if: steps.meta.outputs.update-type == 'version-update:semver-patch' || steps.meta.outputs.update-type == 'version-update:semver-minor'
+        run: gh pr merge --auto --squash "$PR_URL"
+
+      # A merge performed with GITHUB_TOKEN does not trigger `push` workflows, so Pages would never
+      # redeploy. Wait for the merge that branch protection allows, then dispatch ci.yml on main.
+      - name: Wait for merge, then deploy
+        if: steps.meta.outputs.update-type == 'version-update:semver-patch' || steps.meta.outputs.update-type == 'version-update:semver-minor'
+        run: |
+          gh pr checks "$PR_URL" --required --watch --fail-fast
+          for attempt in $(seq 1 30); do
+            state=$(gh pr view "$PR_URL" --json state --jq .state)
+            if [ "$state" = "MERGED" ]; then
+              gh workflow run ci.yml --ref main
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "PR was not merged within 5 minutes"; exit 1
